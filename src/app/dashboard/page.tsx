@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-interface Sale {
+type Sale = {
   id: number
   product: string
   buyer_name: string
@@ -13,7 +13,7 @@ interface Sale {
   sale_date: string
 }
 
-interface Stats {
+type Stats = {
   total: number
   total_agroquizz: number
   total_alunosafo: number
@@ -24,6 +24,8 @@ interface Stats {
   ads_spend: number
 }
 
+type Tab = 'overview' | 'sales' | 'ads'
+
 export default function Dashboard() {
   const router = useRouter()
   const [sales, setSales] = useState<Sale[]>([])
@@ -31,7 +33,7 @@ export default function Dashboard() {
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [year, setYear] = useState(new Date().getFullYear())
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'overview' | 'sales' | 'ads'>('overview')
+  const [tab, setTab] = useState<Tab>('overview')
   const [adsInput, setAdsInput] = useState('')
 
   useEffect(() => { fetchData() }, [month, year])
@@ -45,7 +47,7 @@ export default function Dashboard() {
       setSales(data.sales || [])
       setStats(data.stats || null)
       setAdsInput(data.stats?.ads_spend || '')
-    } catch (e) {}
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
@@ -68,38 +70,36 @@ export default function Dashboard() {
   }
 
   const daysInMonth = new Date(year, month, 0).getDate()
-  const daysPassed = month === new Date().getMonth() + 1 && year === new Date().getFullYear()
-    ? new Date().getDate() : daysInMonth
+  const today = new Date()
+  const daysPassed = (month === today.getMonth() + 1 && year === today.getFullYear()) ? today.getDate() : daysInMonth
   const avgPerDay = stats ? (stats.total / daysPassed) : 0
   const projection = avgPerDay * daysInMonth
-  const roi = stats?.ads_spend ? ((stats.total - stats.ads_spend) / stats.ads_spend * 100) : 0
-  const margin = stats?.total ? ((stats.total - (stats.ads_spend || 0)) / stats.total * 100) : 0
+  const adsSpend = stats?.ads_spend ? Number(stats.ads_spend) : 0
+  const roi = adsSpend > 0 ? ((stats!.total - adsSpend) / adsSpend * 100) : 0
+  const margin = stats?.total ? ((stats.total - adsSpend) / stats.total * 100) : 0
   const eduShare = stats ? (stats.total / 2) : 0
   const rafShare = stats ? (stats.total / 2) : 0
-  const eduAds = stats?.ads_spend ? (stats.ads_spend / 2) : 0
-  const rafAds = stats?.ads_spend ? (stats.ads_spend / 2) : 0
+  const eduAds = adsSpend / 2
+  const rafAds = adsSpend / 2
   const avgTicket = stats?.count ? (stats.total / stats.count) : 0
-
   const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+  const tabStyle = (t: Tab) => ({
+    padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+    fontSize: '13px', fontWeight: 500,
+    background: tab === t ? '#22c55e' : '#1a1a1a',
+    color: tab === t ? '#000' : '#888',
+  } as React.CSSProperties)
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff' }}>
-      {/* Header */}
       <div style={{ borderBottom: '1px solid #1a1a1a', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <h1 style={{ fontSize: '18px', fontWeight: 600 }}>Vendas Dashboard</h1>
-          <select
-            value={month}
-            onChange={e => setMonth(Number(e.target.value))}
-            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#fff', padding: '6px 10px', borderRadius: '8px', fontSize: '13px' }}
-          >
+          <select value={month} onChange={e => setMonth(Number(e.target.value))} style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#fff', padding: '6px 10px', borderRadius: '8px', fontSize: '13px' }}>
             {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
           </select>
-          <select
-            value={year}
-            onChange={e => setYear(Number(e.target.value))}
-            style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#fff', padding: '6px 10px', borderRadius: '8px', fontSize: '13px' }}
-          >
+          <select value={year} onChange={e => setYear(Number(e.target.value))} style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#fff', padding: '6px 10px', borderRadius: '8px', fontSize: '13px' }}>
             {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
@@ -107,27 +107,22 @@ export default function Dashboard() {
       </div>
 
       <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Tabs */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
-          {(['overview', 'sales', 'ads'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              padding: '8px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 500,
-              background: tab === t ? '#22c55e' : '#1a1a1a', color: tab === t ? '#000' : '#888'
-            }}>
-              {t === 'overview' ? 'Visão Geral' : t === 'sales' ? 'Vendas' : 'ADS & ROI'}
-            </button>
-          ))}
+          <button onClick={() => setTab('overview')} style={tabStyle('overview')}>Visão Geral</button>
+          <button onClick={() => setTab('sales')} style={tabStyle('sales')}>Vendas</button>
+          <button onClick={() => setTab('ads')} style={tabStyle('ads')}>ADS & ROI</button>
         </div>
 
-        {loading ? <p style={{ color: '#666' }}>Carregando...</p> : (
-          <>
+        {loading ? (
+          <p style={{ color: '#666' }}>Carregando...</p>
+        ) : (
+          <div>
             {tab === 'overview' && (
               <div>
-                {/* Cards principais */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
                   {[
                     { label: 'Faturamento total', value: fmt(stats?.total || 0), color: '#22c55e' },
-                    { label: 'Total de vendas', value: stats?.count || 0, color: '#3b82f6' },
+                    { label: 'Total de vendas', value: String(stats?.count || 0), color: '#3b82f6' },
                     { label: 'Ticket médio', value: fmt(avgTicket), color: '#eab308' },
                     { label: 'Projeção do mês', value: fmt(projection), color: '#a855f7' },
                   ].map((c, i) => (
@@ -138,7 +133,6 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                {/* Por produto */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
                   {[
                     { name: 'AgroQuizz', total: stats?.total_agroquizz || 0, count: stats?.count_agroquizz || 0 },
@@ -152,7 +146,6 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                {/* Sócios */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
                   {[
                     { name: 'Eduardo (você)', share: eduShare, ads: eduAds },
@@ -166,9 +159,8 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                {/* Reembolsos */}
                 {(stats?.refunds || 0) > 0 && (
-                  <div style={{ background: '#1a0a0a', border: '1px solid #2a1a1a', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
+                  <div style={{ background: '#1a0a0a', border: '1px solid #2a1a1a', borderRadius: '12px', padding: '16px' }}>
                     <p style={{ fontSize: '13px', color: '#ef4444' }}>⚠ {stats?.refunds} reembolso(s) este mês</p>
                   </div>
                 )}
@@ -192,4 +184,92 @@ export default function Dashboard() {
                       ) : sales.map(s => (
                         <tr key={s.id} style={{ borderBottom: '1px solid #111' }}>
                           <td style={{ padding: '12px 16px', color: '#888' }}>{new Date(s.sale_date).toLocaleDateString('pt-BR')}</td>
-                          <td style={{ padding: '12px 16px
+                          <td style={{ padding: '12px 16px' }}>{s.buyer_name || '—'}</td>
+                          <td style={{ padding: '12px 16px', color: '#888' }}>{s.buyer_email || '—'}</td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{ background: s.product === 'AgroQuizz' ? '#0a2a0a' : '#0a0a2a', color: s.product === 'AgroQuizz' ? '#22c55e' : '#3b82f6', padding: '3px 8px', borderRadius: '6px', fontSize: '12px' }}>
+                              {s.product}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 16px', fontWeight: 600 }}>{fmt(s.amount)}</td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{ color: s.status === 'paid' ? '#22c55e' : '#ef4444', fontSize: '12px' }}>
+                              {s.status === 'paid' ? 'Pago' : 'Reembolsado'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                  <button onClick={() => exportCSV(sales)} style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#fff', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Exportar CSV</button>
+                  <button onClick={() => exportPDF(sales)} style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#fff', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Exportar PDF</button>
+                </div>
+              </div>
+            )}
+
+            {tab === 'ads' && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
+                  {[
+                    { label: 'Gasto em ADS', value: fmt(adsSpend), color: '#ef4444' },
+                    { label: 'ROI', value: adsSpend > 0 ? roi.toFixed(1) + '%' : '—', color: roi >= 0 ? '#22c55e' : '#ef4444' },
+                    { label: 'Margem', value: stats?.total ? margin.toFixed(1) + '%' : '—', color: '#eab308' },
+                  ].map((c, i) => (
+                    <div key={i} style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '20px' }}>
+                      <p style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>{c.label}</p>
+                      <p style={{ fontSize: '28px', fontWeight: 700, color: c.color }}>{c.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '24px' }}>
+                  <p style={{ fontSize: '14px', color: '#888', marginBottom: '16px' }}>Lançar gasto em ADS — {months[month - 1]}/{year}</p>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input type="number" value={adsInput} onChange={e => setAdsInput(e.target.value)} placeholder="Ex: 1500.00"
+                      style={{ flex: 1, padding: '10px 14px', background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', color: '#fff', fontSize: '14px' }} />
+                    <button onClick={saveAds} style={{ padding: '10px 20px', background: '#22c55e', border: 'none', borderRadius: '8px', color: '#000', fontWeight: 600, cursor: 'pointer' }}>Salvar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function exportCSV(sales: Sale[]) {
+  const rows = [
+    ['Data', 'Nome', 'Email', 'Produto', 'Valor', 'Status'],
+    ...sales.map(s => [
+      new Date(s.sale_date).toLocaleDateString('pt-BR'),
+      s.buyer_name, s.buyer_email, s.product,
+      String(s.amount), s.status === 'paid' ? 'Pago' : 'Reembolsado'
+    ])
+  ]
+  const csv = rows.map(r => r.join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = 'vendas.csv'
+  a.click()
+}
+
+function exportPDF(sales: Sale[]) {
+  const rows = sales.map(s => [
+    new Date(s.sale_date).toLocaleDateString('pt-BR'),
+    s.buyer_name || '—', s.buyer_email || '—', s.product,
+    'R$ ' + Number(s.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    s.status === 'paid' ? 'Pago' : 'Reembolsado'
+  ])
+  const win = window.open('', '_blank')!
+  win.document.write('<html><head><title>Vendas</title></head><body>')
+  win.document.write('<h2>Relatório de Vendas</h2>')
+  win.document.write('<table border="1" cellpadding="6" style="border-collapse:collapse;font-size:12px">')
+  win.document.write('<tr><th>Data</th><th>Nome</th><th>Email</th><th>Produto</th><th>Valor</th><th>Status</th></tr>')
+  rows.forEach(r => { win.document.write('<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>') })
+  win.document.write('</table></body></html>')
+  win.print()
+}
